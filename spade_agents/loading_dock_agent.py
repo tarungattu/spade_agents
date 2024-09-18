@@ -8,7 +8,7 @@ import time
 class CoordinatorAgent(spade.agent.Agent):
     def __init__(self, jid, password):
         super().__init__(jid, password)
-        self.state = "PROCESSING"  # Initial state
+        self.state = "IDLE"  # Initial state
         self.current_jid = None
         self.end_agent = None
 
@@ -22,7 +22,7 @@ class CoordinatorAgent(spade.agent.Agent):
                     if msg.body == 'provide_coordinates':
                         # Ensure current_jid is a string
                         self.agent.current_jid = str(msg.sender)
-                        coordinates = [1.0, 2.0]  # Example coordinates to send
+                        coordinates = [-6.69, 4.028]  # Example coordinates to send
                         print(f"Sending coordinates {coordinates} to {self.agent.current_jid}")
 
                         # Create and send a response message with the coordinates
@@ -92,7 +92,7 @@ class CoordinatorAgent(spade.agent.Agent):
                     await asyncio.sleep(0.1)
 
                 # After processing is done, reset end_agent to None if it matches the current agent
-                if msg and self.agent.end_agent == str(msg.sender):
+                if self.agent.end_agent == self.agent.current_jid:
                     print(f"End agent {self.agent.end_agent} has finished processing. Resetting end agent.")
                     self.agent.end_agent = None  # Reset the end agent
                 
