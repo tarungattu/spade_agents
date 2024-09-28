@@ -5,15 +5,15 @@ import asyncio
 import json
 
 import rclpy
-from nav2_simple_commander.robot_navigator import BasicNavigator, PoseStamped
+from nav2_simple_commander.robot_navigator import BasicNavigator, PoseStamped, TaskResult
 from geometry_msgs.msg import Pose
+from collections import deque
 
 class AMRAgent(spade.agent.Agent):
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
-        self.navigator = BasicNavigator()
-        self.current_goal = None
-        self.rclpy_init_flag = 0
+        self.navigator = None
+        self.goal_queue = deque()
 
     class RequestCoordinatesBehaviour(OneShotBehaviour):
         async def run(self):
@@ -42,17 +42,17 @@ class AMRAgent(spade.agent.Agent):
                     print(f"AMR Agent: Coordinates received: x={x}, y={y}")
                     
                     # Set the current goal for navigation
-                    self.agent.current_goal = (x, y)
+                    self.agent.goal_queue.append([x, y])
                 except json.JSONDecodeError:
                     print(f"AMR Agent: Unable to decode received message: {msg.body}")
             else:
                 print("AMR Agent: No message received.")
     
     class GoToPoseBehaviour(CyclicBehaviour):
-        rclpy.init()
         async def run(self):
-            if self.agent.current_goal:
-                x, y = self.agent.current_goal
+            if self.agent.goal_queue:
+                current_goal = self.agent.goal_queue.popleft()
+                x, y = current_goal
                 print(f"AMR Agent: Navigating to coordinates: x={x}, y={y}")
                 
                 # Create a PoseStamped goal using the coordinates
@@ -63,6 +63,9 @@ class AMRAgent(spade.agent.Agent):
                 goal_pose.pose.orientation.w = 1.0  # Set orientation (assuming facing forward)
 
                 # Start navigation
+                # Clear the current goal after reaching it
+                # self.agent.goal_queue.pop_left()
+                # print("AMR Agent: Waiting for next set of coordinates.")
                 self.agent.navigator.goToPose(goal_pose)
 
                 # Wait until the robot reaches the goal or fails
@@ -71,17 +74,20 @@ class AMRAgent(spade.agent.Agent):
                 
                 # Check if the robot successfully reached the goal
                 result = self.agent.navigator.getResult()
-                if result == BasicNavigator.SUCCEEDED:
+                if result == TaskResult.SUCCEEDED:
                     print("AMR Agent: Successfully reached the goal.")
                 else:
                     print("AMR Agent: Failed to reach the goal.")
                 
-                # Clear the current goal after reaching it
-                self.agent.current_goal = None
-                print("AMR Agent: Waiting for next set of coordinates.")
+                
     
     async def setup(self):
         print("AMR Agent: Starting...")
+        
+        # Initialize rclpy here and the navigator
+        rclpy.init(args=None)
+        self.navigator = BasicNavigator(namespace="robot2")
+        print("AMR Agent: ROS 2 and Navigator initialized.")
 
         # Add the behaviour to send a request for coordinates
         request_behaviour = self.RequestCoordinatesBehaviour()
@@ -95,10 +101,15 @@ class AMRAgent(spade.agent.Agent):
         goto_pose_behaviour = self.GoToPoseBehaviour()
         self.add_behaviour(goto_pose_behaviour)
 
+    async def stop(self):
+        # Clean up and shut down rclpy before stopping the agent
+        print("AMR Agent: Shutting down ROS 2...")
+        rclpy.shutdown()
+        await super().stop()
 
 # Example usage to start the AMR agent
 async def main():
-    amr_agent = AMRAgent("amr1@jabber.fr", "imagent1")
+    amr_agent = AMRAgent("amr2@jabber.fr", "imagent1")
 
     print("AMR Agent is starting up...")
     await amr_agent.start(auto_register=True)

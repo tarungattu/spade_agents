@@ -66,7 +66,7 @@ class CoordinatorAgent(spade.agent.Agent):
                         if str(msg.sender) != str(original_sender_jid):
                             if not self.agent.end_agent:
                                 # If no end_agent, send new coordinates
-                                new_coordinates = [3.0, 4.0]  # Example coordinates
+                                new_coordinates = [-6.52, 3]  # Example coordinates
                                 print(f"Sending new coordinates {new_coordinates} to {msg.sender}")
                                 
                                 response_msg = Message(to=str(msg.sender))
